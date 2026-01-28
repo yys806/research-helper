@@ -336,6 +336,12 @@ export const PaperFeature: React.FC = () => {
                         )}
                     </div>
                     
+                    {error && (
+                        <div className="mb-4 p-3 rounded-lg border border-red-200 bg-red-50 text-sm text-red-700">
+                            {error}
+                        </div>
+                    )}
+                    
                     {isAnalyzing ? (
                         <div className="space-y-6 animate-pulse">
                             <div className="h-4 bg-slate-100 rounded w-3/4"></div>

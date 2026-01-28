@@ -72,12 +72,20 @@ const callSiliconChat = async (
     throw new Error("模型未返回内容");
   }
 
+  let text: string;
   if (Array.isArray(content)) {
     // OpenAI-style array content
     const textPart = content.find((c: any) => c?.type === "text");
-    return textPart?.text || "";
+    text = textPart?.text || "";
+  } else {
+    text = content as string;
   }
-  return content as string;
+
+  if (!text.trim()) {
+    throw new Error("模型返回为空，请稍后重试或检查文件大小/格式");
+  }
+
+  return text;
 };
 
 const callWithFallback = async (
