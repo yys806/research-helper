@@ -452,11 +452,11 @@ export const PaperFeature: React.FC = () => {
                              {/* Replaced iframe with custom PdfViewer */}
                              <PdfViewer url={pdfPreviewUrl} />
                              
-                             {/* Hint Overlay */}
-                             <div className="absolute top-6 left-1/2 -translate-x-1/2 bg-slate-900/80 backdrop-blur text-white px-4 py-2 rounded-full text-xs md:text-sm font-medium flex items-center gap-2 shadow-xl pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 whitespace-nowrap">
+                              {/* Hint Overlay */}
+                              <div className="absolute top-6 left-1/2 -translate-x-1/2 bg-slate-900/80 backdrop-blur text-white px-4 py-2 rounded-full text-xs md:text-sm font-medium flex items-center gap-2 shadow-xl pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 whitespace-nowrap">
                                 <Crop className="w-4 h-4" />
-                                使用系统截图框选图表 -> 粘贴到右侧
-                             </div>
+                                <span>使用系统截图框选图表 → 粘贴到右侧</span>
+                              </div>
                         </>
                     ) : (
                         <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-4">
