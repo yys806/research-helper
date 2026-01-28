@@ -1,220 +1,211 @@
+﻿import { FormulaResponse, ChatMessage } from "../types";
+import { getApiKey } from "./apiKeyStore";
 
-import { GoogleGenAI, Type } from "@google/genai";
-import { FormulaResponse, ChatMessage } from "../types";
+const BASE_URL = "https://api.siliconflow.cn/v1";
+const TEXT_MODEL = "deepseek-ai/DeepSeek-V3.2";
+const TEXT_FALLBACK_MODEL = "zai-org/GLM-4.6V";
+const VISION_MODEL = "Qwen/Qwen3-VL-32B-Instruct";
+const VISION_FALLBACK_MODEL = "zai-org/GLM-4.6V";
 
-// Helper to remove data:image/png;base64, prefix
-const cleanBase64 = (base64: string) => {
-  // Handles generic data:application/pdf;base64, or image prefixes
-  return base64.replace(/^data:(image|application)\/([a-zA-Z0-9]+);base64,/, "");
-};
+const cleanBase64 = (base64: string) => base64.replace(/^data:(image|application)\/([a-zA-Z0-9.+-]+);base64,/, "");
+
+const ensureDataUrl = (base64: string, mime: string) =>
+  base64.startsWith("data:") ? base64 : `data:${mime};base64,${cleanBase64(base64)}`;
 
 const getMimeType = (base64: string) => {
-    const match = base64.match(/^data:(image|application)\/([a-zA-Z0-9]+);base64,/);
-    if (match) {
-        return `${match[1]}/${match[2]}`;
-    }
-    return 'image/png'; // default fallback
+  const match = base64.match(/^data:(image|application)\/([a-zA-Z0-9.+-]+);base64,/);
+  if (match) return `${match[1]}/${match[2]}`;
+  return "image/png";
+};
+
+class MissingKeyError extends Error {}
+
+const ensureApiKey = () => {
+  const key = getApiKey();
+  if (!key) {
+    throw new MissingKeyError("请先在顶部输入 SiliconFlow API Key（仅保存在本地浏览器）。");
+  }
+  return key;
+};
+
+type ChatMessagePayload = {
+  role: "system" | "user" | "assistant";
+  content:
+    | string
+    | Array<
+        | { type: "text"; text: string }
+        | { type: "image_url"; image_url: { url: string } }
+        | { type: "file"; file: { url: string; mime_type?: string; name?: string } }
+      >;
+};
+
+const callSiliconChat = async (
+  model: string,
+  messages: ChatMessagePayload[],
+  options: Record<string, unknown> = {}
+): Promise<string> => {
+  const apiKey = ensureApiKey();
+
+  const res = await fetch(`${BASE_URL}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages,
+      stream: false,
+      temperature: 0.2,
+      ...options,
+    }),
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    const message = data?.error?.message || data?.message || res.statusText;
+    throw new Error(message || "SiliconFlow API 请求失败");
+  }
+
+  const content = data?.choices?.[0]?.message?.content;
+  if (!content) {
+    throw new Error("模型未返回内容");
+  }
+
+  if (Array.isArray(content)) {
+    // OpenAI-style array content
+    const textPart = content.find((c: any) => c?.type === "text");
+    return textPart?.text || "";
+  }
+  return content as string;
+};
+
+const callWithFallback = async (
+  primaryModel: string,
+  fallbackModel: string,
+  messages: ChatMessagePayload[],
+  options: Record<string, unknown> = {}
+) => {
+  try {
+    return await callSiliconChat(primaryModel, messages, options);
+  } catch (err) {
+    console.warn(`${primaryModel} 调用失败，尝试备用模型 ${fallbackModel}`, err);
+    return await callSiliconChat(fallbackModel, messages, options);
+  }
+};
+
+const parseFormulaJson = (text: string): FormulaResponse => {
+  try {
+    const parsed = JSON.parse(text);
+    return {
+      latex: parsed.latex?.trim?.() || "",
+      explanation: parsed.explanation?.trim?.() || "",
+    };
+  } catch (err) {
+    console.error("解析公式 JSON 失败", err, text);
+    throw new Error("AI 返回格式异常，请重试");
+  }
 };
 
 export const analyzeImage = async (base64Image: string): Promise<FormulaResponse> => {
-  if (!process.env.API_KEY) {
-    throw new Error("Missing API Key. Please check your environment variables.");
-  }
+  const imageUrl = ensureDataUrl(base64Image, getMimeType(base64Image));
 
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
-  // Schema for structured output
-  const responseSchema = {
-    type: Type.OBJECT,
-    properties: {
-      latex: {
-        type: Type.STRING,
-        description: "The extracted mathematical formula in LaTeX format, enclosed in double dollar signs $$...$$.",
-      },
-      explanation: {
-        type: Type.STRING,
-        description: "A clear and concise explanation of the mathematical formula in Simplified Chinese. Explain the variables and the overall meaning.",
-      },
+  const messages: ChatMessagePayload[] = [
+    {
+      role: "system",
+      content: "你是数学公式识别与讲解助手，返回 JSON，字段 latex（使用 $$ 包裹的 LaTeX）和 explanation（简体中文解释）。",
     },
-    required: ["latex", "explanation"],
-  };
+    {
+      role: "user",
+      content: [
+        { type: "text", text: "请提取图中的数学公式，严格输出 JSON 格式。" },
+        { type: "image_url", image_url: { url: imageUrl } },
+      ],
+    },
+  ];
 
-  try {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview", // Efficient reasoning model
-      contents: {
-        parts: [
-          {
-            inlineData: {
-              mimeType: getMimeType(base64Image),
-              data: cleanBase64(base64Image),
-            },
-          },
-          {
-            text: "Extract the mathematical formula from this image exactly as it appears. Output strictly in valid LaTeX format enclosed in $$. Provide a helpful explanation in Simplified Chinese.",
-          },
-        ],
-      },
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: responseSchema,
-        systemInstruction: "You are an expert mathematician and LaTeX formatter. Your goal is to accurately transcribe formulas from images and explain them simply to students.",
-      },
-    });
+  const text = await callWithFallback(VISION_MODEL, VISION_FALLBACK_MODEL, messages, {
+    response_format: { type: "json_object" },
+  });
 
-    const text = response.text;
-    if (!text) {
-      throw new Error("No response from AI.");
-    }
-
-    const data = JSON.parse(text) as FormulaResponse;
-    return data;
-
-  } catch (error) {
-    console.error("Gemini API Error:", error);
-    throw new Error("AI Service unavailable. Please try again.");
-  }
+  return parseFormulaJson(text);
 };
 
 export const analyzePaper = async (base64Pdf: string): Promise<string> => {
-  if (!process.env.API_KEY) {
-    throw new Error("Missing API Key.");
-  }
+  const pdfUrl = ensureDataUrl(base64Pdf, "application/pdf");
 
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const messages: ChatMessagePayload[] = [
+    {
+      role: "system",
+      content: "你是一名学术精读助手，输出结构化的 Markdown 精读笔记（简体中文）。",
+    },
+    {
+      role: "user",
+      content: [
+        { type: "file", file: { url: pdfUrl, mime_type: "application/pdf", name: "paper.pdf" } },
+        {
+          type: "text",
+          text: `基于这篇 PDF，生成"精读笔记"。要求：\n1) 按原文章节结构总结关键点；\n2) 解释核心公式（用 $$ 包裹 LaTeX）；\n3) 用 Markdown 输出，突出重点。`,
+        },
+      ],
+    },
+  ];
 
-  try {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-pro-preview", // Using Pro for complex text understanding
-      contents: {
-        parts: [
-          {
-            inlineData: {
-              mimeType: "application/pdf",
-              data: cleanBase64(base64Pdf),
-            },
-          },
-          {
-            text: `Please act as an advanced academic research assistant. 
-            I need a comprehensive "Intensive Reading Note" (精读笔记) for this paper in Simplified Chinese.
-            
-            Requirements:
-            1. **Structure**: Follow the original paper's section structure strictly (e.g., Abstract, Introduction, Methodology, Experiments, Conclusion).
-            2. **Content**: Summarize the key points of each section deeply. Do not just skim; explain the core ideas.
-            3. **Formulas**: Identify key mathematical formulas. Transcribe them into valid LaTeX format enclosed in $$ (double dollar signs) for block equations or $ for inline.
-            4. **Format**: Output the final result in clean, well-formatted Markdown. Use bolding for key terms.
-            
-            Start directly with the Markdown content.`
-          },
-        ],
-      },
-      config: {
-        thinkingConfig: { thinkingBudget: 1024 },
-      },
-    });
-
-    if (!response.text) {
-      throw new Error("Empty response from AI.");
-    }
-
-    return response.text;
-
-  } catch (error) {
-    console.error("Gemini PDF Error:", error);
-    throw new Error("无法解析 PDF。文件可能过大或加密。请重试。");
-  }
+  return callWithFallback(TEXT_MODEL, TEXT_FALLBACK_MODEL, messages, {
+    max_tokens: 4096,
+  });
 };
 
 export const analyzeChart = async (base64Image: string): Promise<string> => {
-  if (!process.env.API_KEY) {
-    throw new Error("Missing API Key.");
-  }
+  const imageUrl = ensureDataUrl(base64Image, getMimeType(base64Image));
 
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const messages: ChatMessagePayload[] = [
+    {
+      role: "system",
+      content: "你是科研图表解析助手，使用 Markdown 中文回答。",
+    },
+    {
+      role: "user",
+      content: [
+        {
+          type: "text",
+          text: "请解析这张图表：1) 描述内容；2) 解释坐标/图例；3) 概括趋势与异常；4) 给出结论。",
+        },
+        { type: "image_url", image_url: { url: imageUrl } },
+      ],
+    },
+  ];
 
-  try {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-pro-preview", 
-      contents: {
-        parts: [
-          {
-            inlineData: {
-              mimeType: getMimeType(base64Image),
-              data: cleanBase64(base64Image),
-            },
-          },
-          {
-            text: `Analyze this academic chart/figure in detail in Simplified Chinese.
-            
-            1. **Overview**: What is this chart showing?
-            2. **Axes/Labels**: Explain the X and Y axes or legend variables.
-            3. **Trends**: What are the key trends, patterns, or anomalies?
-            4. **Conclusion**: What is the scientific implication of this data?
-            
-            Output in Markdown.`
-          },
-        ],
-      },
-      config: {
-        thinkingConfig: { thinkingBudget: 1024 },
-      },
-    });
-
-    return response.text || "无法解析图表";
-
-  } catch (error) {
-    console.error("Gemini Chart Error:", error);
-    throw new Error("图表解析失败，请重试。");
-  }
+  return callWithFallback(VISION_MODEL, VISION_FALLBACK_MODEL, messages, { max_tokens: 1200 });
 };
 
-export const chatWithPaper = async (base64Pdf: string, history: ChatMessage[], newMessage: string): Promise<string> => {
-    if (!process.env.API_KEY) {
-      throw new Error("Missing API Key.");
-    }
-  
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  
-    // Construct the conversation history including the PDF context
-    // Note: In a real-world app with stateful backend, we wouldn't send the PDF every time.
-    // Here, we treat it as a single multi-part turn or reconstruction of context.
-    
-    // We will structure it as:
-    // Turn 1 User: [PDF Data] + "Act as a helper..."
-    // Turn 1 Model: "Ok..." (Implicitly handled by just prepending PDF to the first meaningful message or the system instruction equivalent)
-    
-    // A simplified robust approach for stateless REST usage:
-    // User Message = [PDF, History Context, New Question]
-    
-    const contextPrompt = `
-    Based on the attached PDF academic paper, please answer the following question.
-    Answer in Simplified Chinese.
-    Previous conversation context:
-    ${history.map(m => `${m.role}: ${m.text}`).join('\n')}
-    
-    New Question: ${newMessage}
-    `;
+export const chatWithPaper = async (
+  base64Pdf: string,
+  history: ChatMessage[],
+  newMessage: string
+): Promise<string> => {
+  const pdfUrl = ensureDataUrl(base64Pdf, "application/pdf");
 
-    try {
-      const response = await ai.models.generateContent({
-        model: "gemini-3-pro-preview",
-        contents: {
-            parts: [
-                {
-                    inlineData: {
-                        mimeType: "application/pdf",
-                        data: cleanBase64(base64Pdf)
-                    }
-                },
-                { text: contextPrompt }
-            ]
-        }
-      });
-  
-      return response.text || "无法回答该问题";
-  
-    } catch (error) {
-      console.error("Gemini Chat Error:", error);
-      throw new Error("对话服务暂时不可用");
-    }
-  };
+  const historyText = history
+    .map((m) => `${m.role === "user" ? "用户" : "助手"}: ${m.text}`)
+    .join("\n");
+
+  const messages: ChatMessagePayload[] = [
+    {
+      role: "system",
+      content: "你是学术论文问答助手，请结合用户提供的 PDF 内容，用简体中文简洁回答。",
+    },
+    {
+      role: "user",
+      content: [
+        { type: "file", file: { url: pdfUrl, mime_type: "application/pdf", name: "paper.pdf" } },
+        {
+          type: "text",
+          text: `历史对话：\n${historyText}\n\n新问题：${newMessage}`,
+        },
+      ],
+    },
+  ];
+
+  return callWithFallback(TEXT_MODEL, TEXT_FALLBACK_MODEL, messages, { max_tokens: 800 });
+};

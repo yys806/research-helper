@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Navbar } from './components/Navbar';
 import { FormulaFeature } from './components/FormulaFeature';
 import { PaperFeature } from './components/PaperFeature';
+import { ApiKeyBar } from './components/ApiKeyBar';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'formula' | 'paper'>('formula');
@@ -9,6 +10,7 @@ const App: React.FC = () => {
   return (
     <div className="h-full flex flex-col bg-slate-50 overflow-hidden">
       <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
+      <ApiKeyBar />
       
       <main className="flex-grow overflow-hidden flex flex-col relative">
         {activeTab === 'formula' ? (
