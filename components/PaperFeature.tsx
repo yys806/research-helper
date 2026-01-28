@@ -7,6 +7,7 @@ import { PdfInput } from './PdfInput';
 import { ImageInput } from './ImageInput';
 import { PdfViewer } from './PdfViewer';
 import { analyzePaper, analyzeChart, chatWithPaper } from '../services/geminiService';
+import { extractPdfText } from '../services/pdfText';
 import { BookOpen, Copy, Check, FileText, Bot, History, PieChart, Trash2, ArrowRight, Crop, MessageSquare, Send, User } from 'lucide-react';
 import { PaperHistoryItem, ChatMessage } from '../types';
 
@@ -38,6 +39,7 @@ export const PaperFeature: React.FC = () => {
   // Common State
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [progress, setProgress] = useState<{ message: string; percent: number } | null>(null);
   const [history, setHistory] = useState<PaperHistoryItem[]>([]);
 
   // Load History on Mount
@@ -105,10 +107,15 @@ export const PaperFeature: React.FC = () => {
     setError(null);
     setIsAnalyzing(true);
     setSubTab('read'); // Switch to notes tab immediately
+    setProgress({ message: "解析 PDF 文本...", percent: 10 });
 
     try {
+      const { text, pages } = await extractPdfText(base64);
+      setProgress({ message: `提取文本完成（${pages} 页），正在生成笔记...`, percent: 60 });
+
       // Start analysis
-      const result = await analyzePaper(base64);
+      const result = await analyzePaper(text, name);
+      setProgress({ message: "生成笔记完成", percent: 95 });
       setReadResult(result);
       saveToHistory({
         id: Date.now().toString(),
@@ -122,6 +129,7 @@ export const PaperFeature: React.FC = () => {
       setError(err instanceof Error ? err.message : "分析论文时出错");
     } finally {
       setIsAnalyzing(false);
+      setProgress(null);
     }
   };
 
@@ -343,16 +351,21 @@ export const PaperFeature: React.FC = () => {
                     )}
                     
                     {isAnalyzing ? (
-                        <div className="space-y-6 animate-pulse">
-                            <div className="h-4 bg-slate-100 rounded w-3/4"></div>
-                            <div className="h-4 bg-slate-100 rounded w-full"></div>
-                            <div className="h-4 bg-slate-100 rounded w-5/6"></div>
-                            <div className="h-32 bg-slate-100 rounded-xl"></div>
-                            <div className="flex items-center justify-center py-12">
-                                <div className="flex flex-col items-center gap-3">
-                                    <div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
-                                    <p className="text-slate-400 text-sm">正在深入阅读论文内容...</p>
+                        <div className="space-y-4 animate-in fade-in">
+                            <div className="h-3 bg-slate-100 rounded w-3/4"></div>
+                            <div className="h-3 bg-slate-100 rounded w-full"></div>
+                            <div className="h-3 bg-slate-100 rounded w-5/6"></div>
+                            <div className="h-24 bg-slate-100 rounded-xl"></div>
+                            <div className="flex flex-col gap-3">
+                                <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                                    <div
+                                      className="h-2 bg-brand-500 transition-all"
+                                      style={{ width: `${Math.min(progress?.percent ?? 10, 98)}%` }}
+                                    />
                                 </div>
+                                <p className="text-slate-500 text-sm">
+                                  {progress?.message || "正在处理..."}
+                                </p>
                             </div>
                         </div>
                     ) : readResult ? (

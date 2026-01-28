@@ -139,8 +139,8 @@ export const analyzeImage = async (base64Image: string): Promise<FormulaResponse
   return parseFormulaJson(text);
 };
 
-export const analyzePaper = async (base64Pdf: string): Promise<string> => {
-  const pdfUrl = ensureDataUrl(base64Pdf, "application/pdf");
+export const analyzePaper = async (pdfText: string, title?: string): Promise<string> => {
+  const truncated = pdfText.length > 12000 ? pdfText.slice(0, 12000) + "\n\n[内容截断，后续略]" : pdfText;
 
   const messages: ChatMessagePayload[] = [
     {
@@ -150,10 +150,15 @@ export const analyzePaper = async (base64Pdf: string): Promise<string> => {
     {
       role: "user",
       content: [
-        { type: "file", file: { url: pdfUrl, mime_type: "application/pdf", name: "paper.pdf" } },
         {
           type: "text",
-          text: `基于这篇 PDF，生成"精读笔记"。要求：\n1) 按原文章节结构总结关键点；\n2) 解释核心公式（用 $$ 包裹 LaTeX）；\n3) 用 Markdown 输出，突出重点。`,
+          text:
+            `论文标题: ${title || "未命名论文"}\n` +
+            "以下是从 PDF 提取的纯文本（可能无版面信息）。请基于内容生成“精读笔记”：\n" +
+            "1) 按原文章节结构总结关键点；\n" +
+            "2) 解释核心公式（用 $$ 包裹 LaTeX）；\n" +
+            "3) 用 Markdown 输出，突出重点。\n\n" +
+            truncated,
         },
       ],
     },
