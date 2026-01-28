@@ -10,6 +10,11 @@ export default defineConfig(({ mode }) => {
         host: '0.0.0.0',
       },
       plugins: [react()],
+      // Allow modern syntax (e.g., top-level await from pdfjs-dist) to pass through build
+      // Netlify serves to modern browsers, so we can safely target ESNext.
+      build: {
+        target: 'esnext',
+      },
       define: {
         'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
         'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
