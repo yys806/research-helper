@@ -1,0 +1,5 @@
+{
+  "name": "MathSnap - LaTeX AI Scanner",
+  "description": "Instantly convert clipboard images of mathematical formulas into copy-paste ready LaTeX code with AI-powered explanations in Chinese.",
+  "requestFramePermissions": []
+}
