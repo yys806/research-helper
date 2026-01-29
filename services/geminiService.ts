@@ -193,11 +193,16 @@ export const analyzeChart = async (base64Image: string): Promise<string> => {
 };
 
 export const chatWithPaper = async (
-  base64Pdf: string,
+  paperText: string,
   history: ChatMessage[],
-  newMessage: string
+  newMessage: string,
+  title?: string
 ): Promise<string> => {
-  const pdfUrl = ensureDataUrl(base64Pdf, "application/pdf");
+  if (!paperText?.trim()) {
+    throw new Error("PDF 文本为空，无法回答，请重新上传文件。");
+  }
+
+  const truncated = paperText.length > 12000 ? paperText.slice(0, 12000) + "\n\n[内容截断，后续略]" : paperText;
 
   const historyText = history
     .map((m) => `${m.role === "user" ? "用户" : "助手"}: ${m.text}`)
@@ -206,15 +211,18 @@ export const chatWithPaper = async (
   const messages: ChatMessagePayload[] = [
     {
       role: "system",
-      content: "你是学术论文问答助手，请结合用户提供的 PDF 内容，用简体中文简洁回答。",
+      content: "你是学术论文问答助手，请结合给定论文文本，用简体中文简洁作答。",
     },
     {
       role: "user",
       content: [
-        { type: "file", file: { url: pdfUrl, mime_type: "application/pdf", name: "paper.pdf" } },
         {
           type: "text",
-          text: `历史对话：\n${historyText}\n\n新问题：${newMessage}`,
+          text:
+            `论文标题: ${title || "未命名论文"}\n` +
+            `论文内容（截断可能存在）:\n${truncated}\n\n` +
+            `历史对话:\n${historyText}\n\n` +
+            `新问题: ${newMessage}`,
         },
       ],
     },

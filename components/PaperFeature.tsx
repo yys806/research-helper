@@ -40,6 +40,7 @@ export const PaperFeature: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [progress, setProgress] = useState<{ message: string; percent: number } | null>(null);
+  const [pdfText, setPdfText] = useState<string>("");
   const [history, setHistory] = useState<PaperHistoryItem[]>([]);
 
   // Load History on Mount
@@ -104,6 +105,7 @@ export const PaperFeature: React.FC = () => {
     setFileName(name);
     setReadResult("");
     setChatMessages([]);
+    setPdfText("");
     setError(null);
     setIsAnalyzing(true);
     setSubTab('read'); // Switch to notes tab immediately
@@ -111,6 +113,7 @@ export const PaperFeature: React.FC = () => {
 
     try {
       const { text, pages } = await extractPdfText(base64);
+      setPdfText(text);
       setProgress({ message: `提取文本完成（${pages} 页），正在生成笔记...`, percent: 60 });
 
       // Start analysis
@@ -160,6 +163,10 @@ export const PaperFeature: React.FC = () => {
 
   const handleSendMessage = async () => {
       if (!chatInput.trim() || !pdfFile) return;
+      if (!pdfText) {
+        setError("PDF 文本尚未解析，请重新上传文件后再试。");
+        return;
+      }
 
       const newUserMsg: ChatMessage = { role: 'user', text: chatInput, timestamp: Date.now() };
       const updatedMessages = [...chatMessages, newUserMsg];
@@ -169,7 +176,7 @@ export const PaperFeature: React.FC = () => {
       setIsChatting(true);
 
       try {
-          const answer = await chatWithPaper(pdfFile, chatMessages, newUserMsg.text);
+          const answer = await chatWithPaper(pdfText, chatMessages, newUserMsg.text, fileName || undefined);
           const newModelMsg: ChatMessage = { role: 'model', text: answer, timestamp: Date.now() };
           const finalMessages = [...updatedMessages, newModelMsg];
           setChatMessages(finalMessages);
