@@ -7,6 +7,10 @@ const TEXT_FALLBACK_MODEL = "zai-org/GLM-4.6V";
 const VISION_MODEL = "Qwen/Qwen3-VL-32B-Instruct";
 const VISION_FALLBACK_MODEL = "zai-org/GLM-4.6V";
 
+// Chunking config to keep full content without hard truncation
+const NOTE_CHUNK_SIZE = 9000; // characters per chunk sent to model
+const NOTE_CHUNK_OVERLAP = 300; // small overlap to preserve context between chunks
+
 const cleanBase64 = (base64: string) => base64.replace(/^data:(image|application)\/([a-zA-Z0-9.+-]+);base64,/, "");
 
 const ensureDataUrl = (base64: string, mime: string) =>
@@ -102,6 +106,21 @@ const callWithFallback = async (
   }
 };
 
+// Split long text into overlapping chunks to avoid truncation while staying within model context
+const splitIntoChunks = (text: string, size = NOTE_CHUNK_SIZE, overlap = NOTE_CHUNK_OVERLAP): string[] => {
+  if (text.length <= size) return [text];
+  const chunks: string[] = [];
+  let start = 0;
+  while (start < text.length) {
+    const end = Math.min(start + size, text.length);
+    const chunk = text.slice(start, end);
+    chunks.push(chunk);
+    if (end === text.length) break;
+    start = end - overlap; // step back a little to keep context
+  }
+  return chunks;
+};
+
 const parseFormulaJson = (text: string): FormulaResponse => {
   try {
     const parsed = JSON.parse(text);
@@ -140,33 +159,44 @@ export const analyzeImage = async (base64Image: string): Promise<FormulaResponse
 };
 
 export const analyzePaper = async (pdfText: string, title?: string): Promise<string> => {
-  const truncated = pdfText.length > 12000 ? pdfText.slice(0, 12000) + "\n\n[内容截断，后续略]" : pdfText;
+  const chunks = splitIntoChunks(pdfText);
 
-  const messages: ChatMessagePayload[] = [
-    {
-      role: "system",
-      content: "你是一名学术精读助手，输出结构化的 Markdown 精读笔记（简体中文）。",
-    },
-    {
-      role: "user",
-      content: [
-        {
-          type: "text",
-          text:
-            `论文标题: ${title || "未命名论文"}\n` +
-            "以下是从 PDF 提取的纯文本（可能无版面信息）。请基于内容生成“精读笔记”：\n" +
-            "1) 按原文章节结构总结关键点；\n" +
-            "2) 解释核心公式（用 $$ 包裹 LaTeX）；\n" +
-            "3) 用 Markdown 输出，突出重点。\n\n" +
-            truncated,
-        },
-      ],
-    },
-  ];
+  // Process each chunk sequentially to respect rate limits and preserve order
+  const partialNotes: string[] = [];
+  for (let i = 0; i < chunks.length; i++) {
+    const chunk = chunks[i];
+    const messages: ChatMessagePayload[] = [
+      {
+        role: "system",
+        content:
+          "你是一名学术精读助手，请输出结构化的 Markdown 精读笔记（简体中文）。" +
+          "保持原有章节/小节顺序，重点标出公式（用 $$ 包裹 LaTeX）与结论，勿遗漏本段内容。",
+      },
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text:
+              `论文标题: ${title || "未命名论文"}\n` +
+              `以下是第 ${i + 1}/${chunks.length} 段的 PDF 纯文本（包含少量上下文重叠）。\n` +
+              "请仅基于这段内容生成精读笔记，并保留对应的小标题/序号，勿笼统概括其他段落。\n\n" +
+              chunk,
+          },
+        ],
+      },
+    ];
 
-  return callWithFallback(TEXT_MODEL, TEXT_FALLBACK_MODEL, messages, {
-    max_tokens: 4096,
-  });
+    const note = await callWithFallback(TEXT_MODEL, TEXT_FALLBACK_MODEL, messages, {
+      // 稍高的 token 上限，确保每段输出完整
+      max_tokens: 5200,
+    });
+
+    partialNotes.push(`## 部分 ${i + 1}\n${note.trim()}`);
+  }
+
+  // 合并所有分段笔记，前置总标题，确保浏览时能看到完整内容
+  return `# 精读笔记（完整无截断）\n${partialNotes.join("\n\n")}`;
 };
 
 export const analyzeChart = async (base64Image: string): Promise<string> => {
