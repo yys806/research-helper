@@ -286,7 +286,7 @@ export const PaperFeature: React.FC = () => {
     <div className="flex flex-col h-full bg-slate-50">
       {/* Sub-Header / Toolbar */}
       <div className="bg-white border-b border-slate-200 px-4 py-2 flex items-center justify-between flex-shrink-0 z-10 shadow-sm">
-        <div className="flex space-x-1 bg-slate-100 p-1 rounded-lg">
+        <div className="flex space-x-1 bg-slate-100 p-1 rounded-lg overflow-x-auto whitespace-nowrap max-w-full">
            <button
              onClick={() => setSubTab('read')}
              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${subTab === 'read' ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-600 hover:bg-slate-200'}`}
@@ -440,24 +440,31 @@ export const PaperFeature: React.FC = () => {
                     {/* Chat Input */}
                     <div className="p-4 bg-white border-t border-slate-200">
                         {pdfFile ? (
-                            <div className="flex gap-2 relative">
-                                <input
-                                    type="text"
-                                    value={chatInput}
-                                    onChange={(e) => setChatInput(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && !isChatting && handleSendMessage()}
-                                    placeholder="输入关于论文的问题..."
-                                    className="flex-grow px-4 py-3 bg-slate-100 rounded-xl border-transparent focus:bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-200 transition-all outline-none text-sm"
-                                    disabled={isChatting}
-                                />
-                                <button 
-                                    onClick={handleSendMessage}
-                                    disabled={!chatInput.trim() || isChatting}
-                                    className="p-3 bg-brand-600 text-white rounded-xl hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm flex-shrink-0"
-                                >
-                                    {isChatting ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Send className="w-5 h-5" />}
-                                </button>
-                            </div>
+                            <>
+                                <div className="flex gap-2 relative">
+                                    <input
+                                        type="text"
+                                        value={chatInput}
+                                        onChange={(e) => setChatInput(e.target.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && !isChatting && handleSendMessage()}
+                                        placeholder="输入关于论文的问题..."
+                                        aria-label="输入关于论文的问题"
+                                        className="flex-grow px-4 py-3 bg-slate-100 rounded-xl border-transparent focus:bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-200 transition-all outline-none text-sm"
+                                        disabled={isChatting}
+                                    />
+                                    <button
+                                        onClick={handleSendMessage}
+                                        disabled={!chatInput.trim() || isChatting}
+                                        aria-label="发送提问"
+                                        className="p-3 bg-brand-600 text-white rounded-xl hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm flex-shrink-0"
+                                    >
+                                        {isChatting ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Send className="w-5 h-5" />}
+                                    </button>
+                                </div>
+                                <p className="mt-2 text-xs text-slate-400 text-center">
+                                    回答仅基于论文前约 1.2 万字符,超长论文靠后的内容可能未被覆盖
+                                </p>
+                            </>
                         ) : (
                             <div className="text-center text-sm text-slate-500 py-2 bg-slate-50 rounded-lg border border-slate-100">
                                 请先上传 PDF 才能进行 AI 问答
@@ -524,7 +531,7 @@ export const PaperFeature: React.FC = () => {
                             <div className="animate-in fade-in slide-in-from-bottom-2">
                                 <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
                                     <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">分析结果</span>
-                                    <button onClick={() => handleCopy(chartResult)} className="text-slate-400 hover:text-brand-600">
+                                    <button onClick={() => handleCopy(chartResult)} aria-label="复制分析结果" className="text-slate-400 hover:text-brand-600">
                                         <Copy className="w-4 h-4" />
                                     </button>
                                 </div>
@@ -601,6 +608,7 @@ export const PaperFeature: React.FC = () => {
                                                 onClick={(e) => deleteHistoryItem(e, item.id)}
                                                 className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                                                 title="删除"
+                                                aria-label="删除该条历史记录"
                                             >
                                                 <Trash2 className="w-4 h-4" />
                                             </button>

@@ -31,11 +31,13 @@ export const ApiKeyBar: React.FC = () => {
           value={apiKey}
           onChange={(e) => setApiKeyState(e.target.value)}
           placeholder="sk-..."
-          className="w-64 md:w-80 px-3 py-2 rounded-lg border border-amber-200 focus:border-amber-400 focus:ring-2 focus:ring-amber-200 text-sm bg-white shadow-inner"
+          aria-label="SiliconFlow API Key"
+          autoComplete="off"
+          className="w-full min-w-0 md:w-80 px-3 py-2 rounded-lg border border-amber-200 focus:border-amber-400 focus:ring-2 focus:ring-amber-200 text-sm bg-white shadow-inner"
         />
         <button
           onClick={handleSave}
-          className="px-3 py-2 bg-amber-600 text-white text-sm font-medium rounded-lg shadow hover:bg-amber-700 active:scale-95 transition"
+          className="px-3 py-2 bg-amber-600 text-white text-sm font-medium rounded-lg shadow hover:bg-amber-700 active:scale-95 transition flex-shrink-0"
         >
           保存
         </button>

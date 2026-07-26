@@ -3,7 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MathSnap - LaTeX Formula Extractor</title>
+    <meta name="description" content="MathSnap:公式截图一键转 LaTeX;PDF 论文 AI 精读笔记、图表解析与智能问答。纯前端应用,使用你自己的 SiliconFlow API Key。" />
+    <meta name="theme-color" content="#2563eb" />
+    <title>MathSnap - 公式识别与论文精读</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV" crossorigin="anonymous">
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vniwctZTcsq948" crossorigin="anonymous"></script>
@@ -27,6 +29,11 @@
          max-width: 100%;
          height: auto !important;
       }
+      /* Keyboard focus visibility (a11y) */
+      :focus-visible {
+        outline: 2px solid #2563eb;
+        outline-offset: 2px;
+      }
     </style>
     <script>
       tailwind.config = {
@@ -48,6 +55,9 @@
     </script>
   </head>
   <body class="bg-slate-50 text-slate-900 antialiased h-screen overflow-hidden flex flex-col">
+    <noscript>
+      <div style="padding: 2rem; text-align: center">MathSnap 需要启用 JavaScript 才能运行。</div>
+    </noscript>
     <div id="root" class="h-full flex flex-col"></div>
   <script type="module" src="/index.tsx"></script>
 </body>

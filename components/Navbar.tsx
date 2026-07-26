@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sigma, Github, FileText } from 'lucide-react';
+import { Sigma, FileText } from 'lucide-react';
 import { APP_NAME } from '../constants';
 
 interface NavbarProps {
@@ -48,17 +48,6 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
              <span className="text-slate-300">|</span>
              <span className="font-semibold text-base tracking-tight hover:text-brand-600 transition-colors cursor-default">{APP_NAME}</span>
           </div>
-        </div>
-        
-        {/* Right: Links */}
-        <div className="flex items-center gap-4">
-          <a 
-            href="#" 
-            className="p-2 text-slate-400 hover:text-slate-800 transition-colors"
-            aria-label="Github"
-          >
-            <Github className="w-5 h-5" />
-          </a>
         </div>
       </div>
     </nav>

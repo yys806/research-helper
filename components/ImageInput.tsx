@@ -90,7 +90,7 @@ export const ImageInput: React.FC<ImageInputProps> = ({
         <div className="relative rounded-2xl overflow-hidden border border-slate-200 shadow-sm bg-white group min-h-[200px] flex items-center justify-center bg-slate-100/50">
           <img 
             src={selectedImage} 
-            alt="Uploaded Formula" 
+            alt="已上传的公式图片"
             className={`w-full h-auto max-h-[400px] object-contain mx-auto transition-opacity duration-300 ${isAnalyzing ? 'opacity-50 blur-[2px]' : 'opacity-100'}`}
           />
           
