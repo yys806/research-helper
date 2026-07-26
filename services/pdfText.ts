@@ -1,15 +1,5 @@
-import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
-
-// Configure pdf.js worker (Vite will handle bundling)
-// Note: pdfjs-dist >=4 uses esm worker path
-try {
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
-  GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();
-} catch (e) {
-  // Fallback silently; pdfjs will try default worker
-  console.warn("pdfjs worker set failed", e);
-}
+import { getDocument } from "pdfjs-dist";
+import "./pdfWorker";
 
 export const extractPdfText = async (base64: string): Promise<{ text: string; pages: number }> => {
   const data = base64.startsWith("data:")

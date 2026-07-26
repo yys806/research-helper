@@ -1,9 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 import { Loader2, AlertCircle } from 'lucide-react';
-
-// Initialize worker with the specific version matching our importmap
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://esm.sh/pdfjs-dist@4.0.379/build/pdf.worker.min.mjs';
+// Worker 统一在 services/pdfWorker 中配置(本地打包,不依赖外部 CDN)
+import '../services/pdfWorker';
 
 interface PdfViewerProps {
   url: string;
